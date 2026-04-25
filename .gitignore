@@ -1,0 +1,9 @@
+node_modules/
+.vscode/
+.env
+codes/*
+!codes/.gitkeep
+backend/outputs/
+*.log
+dist/
+build/
