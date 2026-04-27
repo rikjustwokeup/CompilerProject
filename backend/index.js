@@ -28,13 +28,20 @@ app.use(express.json());
 app.get("/status", async(req, res) => {
 
     const jobId = req.query.id;
+    console.log("status requested", jobId);
 
     if(jobId == undefined){
         return res.status(400).json({success: false, error: "missing id query param"})
     }
     try {
-    const job = await new Job.findById(jobId);
+    const job = await Job.findById(jobId);
+
+    if (job == undefined) {
+        return res.status(404).json({sucess: false, error: "invalid job id"});
+    }
     
+    return res.status(200).json({sucess : true, job});
+
     } catch(err) {
         return res.status(400).json({success: false, error: JSON.stringify(err)});
     }

@@ -10,16 +10,39 @@ function App() {
   const handleSubmit = async () => {
     const payload = {
       language, // supports "cpp", "java", "python"
-      code
+      code,
     };
     try {
       const {data} = await axios.post("http://localhost:5000/run", payload)
       console.log(data);
       setOutput(data.jobId);
-    } catch({response}) {
-      if (response) {
-        const errMsg = response.data.err.stderr;
-        setOutput(errMsg);
+
+      setInterval(async () => {
+        const { data: dataRes } = await axios.get(
+          "http://localhost:5000/status",
+          { params: { id: data.jobId } }
+        );
+
+        const {success, job, error} = dataRes;
+
+        if(success){
+          const {status: jobStatus, output: jobOutput} = job;
+          if (jobStatus === "pending") return;
+          setOutput(jobOutput);
+
+        } else{
+          console.error(error);
+          setOutput(error);
+
+        }
+
+        console.log(dataRes);
+      }, 1000);
+
+    } catch(err) {
+      if (err.response) {
+        const errMsg = err.response.data?.err?.stderr;
+        setOutput(errMsg || "unknown server error");
       } else{
         setOutput("Error connecting to server");
       }
