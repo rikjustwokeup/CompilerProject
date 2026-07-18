@@ -7,8 +7,12 @@ const executeC = (filePath) => {
         exec(
             `gcc "${filePath}" -o "${outputPath}" && "${outputPath}"`,
             (error, stdout, stderr) => {
-                if (error) return reject({ error, stderr });
-                if (stderr) return reject(stderr);
+                if (error) {
+                    return reject({ stderr: stderr || error.message });
+                }
+                if (stderr) {
+                    return reject({ stderr: stderr });
+                }
                 resolve(stdout);
             }
         );

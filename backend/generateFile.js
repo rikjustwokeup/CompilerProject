@@ -9,23 +9,20 @@ if (!fs.existsSync(dirCodes)) {
 }
 
 const generateFile = async (format, code) => {
+    // that were corrupting the javac exec command with \n at the end
 
-    //FIX FOR JAVA
     if (format === "java") {
-        const filename = "Main.java"; // must match class name
+        const filename = "Main.java"; 
         const filepath = path.join(dirCodes, filename);
-
-        fs.writeFileSync(filepath, code);
-        return filepath;
+        fs.writeFileSync(filepath, code.trim()); 
+        return filepath.trim();                  
     }
 
-    //other languages
     const jobId = uuid();
     const filename = `${jobId}.${format}`;
     const filepath = path.join(dirCodes, filename);
-
-    fs.writeFileSync(filepath, code);
-    return filepath;
+    fs.writeFileSync(filepath, code.trim());     //consistent trim for all languages
+    return filepath.trim();
 };
 
 module.exports = {

@@ -3,18 +3,23 @@ const path = require("path");
 
 const executeJava = (filePath) => {
     return new Promise((resolve, reject) => {
-        const dir = path.dirname(filePath);
-        const fileName = path.basename(filePath, ".java");
+        // ✅ FIX 1: normalize cleans up any double-escaped backslashes
+        const normalizedPath = path.normalize(filePath.trim());
+        const dir = path.dirname(normalizedPath);
+        const fileName = path.basename(normalizedPath, ".java");
 
         exec(
-            `javac "${filePath}" && java -cp "${dir}" ${fileName}`,
+            `javac "${normalizedPath}" && java -cp "${dir}" ${fileName}`,
             (error, stdout, stderr) => {
-                if (error) return reject({ error, stderr });
-                if (stderr) return reject(stderr);
+                if (error) {
+                    console.error(stderr);
+                    // ✅ FIX 2: return both stderr and message for better debugging
+                    return reject({ stderr, message: error.message });
+                }
                 resolve(stdout);
             }
         );
     });
 };
-        
+
 module.exports = { executeJava };

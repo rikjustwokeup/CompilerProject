@@ -6,18 +6,22 @@ const JobSchema = mongoose.Schema({
         enum: ["cpp", "python", "java", "c"],
         required: true
     },
-    filepath : {
+    filepath: {
         type: String,
         required: true,
     },
-    sumbittedAt : {
+    code: {               // ✅ ADDED: was missing from schema
+        type: String,
+        required: true,
+    },
+    submittedAt: {        // ✅ FIXED: was "sumbittedAt" (typo)
         type: Date,
         default: Date.now
     },
-    startedAt:{
+    startedAt: {
         type: Date
     },
-    completedAt:{
+    completedAt: {
         type: Date
     },
     output: {
@@ -30,6 +34,6 @@ const JobSchema = mongoose.Schema({
     }
 });
 
-const Job = new mongoose.model('job', JobSchema);
+const Job = mongoose.model('job', JobSchema); // ✅ FIXED: was "new mongoose.model" (unnecessary new)
 
 module.exports = Job;

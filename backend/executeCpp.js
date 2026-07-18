@@ -3,7 +3,6 @@ const fs = require("fs");
 const path = require("path");
 
 const outputPath = path.join(__dirname, "outputs");
-
 if (!fs.existsSync(outputPath)) {
     fs.mkdirSync(outputPath, { recursive: true });
 }
@@ -16,26 +15,13 @@ const executeCpp = (filepath) => {
         exec(
             `g++ "${filepath}" -o "${outPath}" && cd "${outputPath}" && "${jobId}.out"`,
             (error, stdout, stderr) => {
-
                 if (error) {
-                    return reject({
-                        success: false,
-                        error: error.message,
-                        stderr: stderr
-                    });
+                    return reject({ stderr: stderr || error.message });
                 }
-
                 if (stderr) {
-                    return reject({
-                        success: false,
-                        error: stderr
-                    });
+                    return reject({ stderr: stderr });
                 }
-
-                resolve({
-                    success: true,
-                    output: stdout.replace(/\r/g, "")
-                });
+                resolve(stdout.replace(/\r/g, ""));
             }
         );
     });

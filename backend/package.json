@@ -12,9 +12,12 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "bull": "^4.16.5",
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "googleapis": "^171.4.0",
     "mongoose": "^9.4.1",
+    "multer": "^2.1.1",
     "uuid": "^13.0.0"
   }
 }
