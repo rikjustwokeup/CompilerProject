@@ -1,9 +1,10 @@
 const mongoose = require('mongoose');
+const{ LANGUAGES } = require('../languages');
 
 const JobSchema = mongoose.Schema({
     language: {
         type: String,
-        enum: ["cpp", "python", "java", "c"],
+        enum: Object.keys(LANGUAGES),
         required: true
     },
     filepath: {

@@ -1,9 +1,15 @@
 node_modules/
 .vscode/
 .env
-codes/
-!codes/.gitkeep
 backend/outputs/
 *.log
 dist/
 build/
+backend/uploads/
+*.exe
+*.out
+*.class
+service-account-key.json
+**/service-account-key.json
+backend/codes/*
+!backend/codes/.gitkeep

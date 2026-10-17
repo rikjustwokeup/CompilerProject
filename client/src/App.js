@@ -1,10 +1,11 @@
 import axios from 'axios';
 import './App.css';
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import stubs from './defaultStubs';
 import moment from 'moment';
 import Editor from '@monaco-editor/react';
 import Split from "react-split"
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 function App() {
   const [code, setCode] = useState("");
@@ -13,6 +14,7 @@ function App() {
   const [status, setStatus] = useState("");
   const [jobId, setJobId] = useState("");
   const [jobDetails, setJobDetails] = useState(null);
+  const pollRef = useRef(null);
 
   // ── Upload state
   const [uploading, setUploading] = useState(false);
@@ -29,6 +31,7 @@ function App() {
     setCode(stubs[language]);
   }, [language]);
 
+  useEffect(() => () => clearInterval(pollRef.current), []);
   //Existing lang handler
   const setDefaultLanguage = () => {
     localStorage.setItem("default-language", language);
@@ -51,40 +54,37 @@ function App() {
 
   const handleSubmit = async () => {
     const payload = { language, code };
+    clearInterval(pollRef.current);
     try {
       setJobId("");
       setStatus("");
       setOutput("");
       setJobDetails(null);
-      const { data } = await axios.post("http://localhost:5000/run", payload);
-      console.log(data);
+      const { data } = await axios.post(`${API_URL}/run`, payload);
       setJobId(data.jobId);
-      let intervalId;
-      intervalId = setInterval(async () => {
-        const { data: dataRes } = await axios.get(
-          "http://localhost:5000/status",
-          { params: { id: data.jobId } }
-        );
-        const { success, job, error } = dataRes;
-        console.log(dataRes);
-        if (success === true) {
-          const { status: jobStatus, output: jobOutput } = job;
-          setStatus(jobStatus);
+      setStatus("pending");
+
+      pollRef.current = setInterval(async () => {
+        try {
+          const { data: dataRes } = await axios.get(`${API_URL}/status`, {
+            params: { id: data.jobId },
+          });
+          const { job } = dataRes;
+          setStatus(job.status);
           setJobDetails(job);
-          if (jobStatus === "pending") return;
-          setOutput(jobOutput);
-          clearInterval(intervalId);
-        } else {
-          setStatus("Error: Please retry..");
-          console.error(error);
-          clearInterval(intervalId);
-          setOutput(error);
+          if (job.status === "pending") return;
+          setOutput(job.output ?? "");
+          clearInterval(pollRef.current);
+        } catch (err) {
+          clearInterval(pollRef.current);
+          setStatus("error");
+          setOutput(err.response?.data?.error || "Lost connection to the server. Please retry.");
         }
       }, 1000);
     } catch (err) {
+      setStatus("error");
       if (err.response) {
-        const errMsg = err.response.data?.err?.stderr;
-        setOutput(errMsg || "unknown server error");
+        setOutput(err.response.data?.error || "Unknown server error");
       } else {
         setOutput("Error connecting to server");
       }
@@ -103,7 +103,7 @@ function App() {
       setUploading(true);
       setUploadError('');
       setUploadResult(null);
-      const { data } = await axios.post('http://localhost:5000/upload', formData);
+      const { data } = await axios.post(`${API_URL}/upload`, formData);
       setUploadResult(data);
     } catch (err) {
       setUploadError(err.response?.data?.error || 'Upload failed');
@@ -199,12 +199,14 @@ function App() {
             )}
 
             <div className="output-body">
-              <pre>{output ? output.trim() : "No output yet..."}</pre>
+              <pre>{output ? output.trim() : status==="success" ? "(program finished with no output)" : "No output yet..."}</pre>
             </div>
           </div>
         </Split>
         <br />
-        <button onClick={handleSubmit}>Submit</button>
+        <button onClick={handleSubmit} disabled={status === "pending"}>
+            {status === "pending" ? "Running..." : "Submit"}
+        </button>
 
         {/* upload section below*/} 
         <div className="upload-section">

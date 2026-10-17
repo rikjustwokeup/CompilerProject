@@ -5,14 +5,17 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { google } = require('googleapis');
-const { generateFile } = require('./generatefile');
+const { generateFile } = require('./generateFile');
 const { addJobToQueue } = require('./jobQueue');
+const { isSupportedLanguage } = require('./languages')
 const Job = require("./Models/Job");
 
 //mongo section
 const connectDB = async () => {
     try {
-        await mongoose.connect('mongodb://127.0.0.1:27017/compilerapp');
+        await mongoose.connect(
+            process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/compilerapp'
+        );
         console.log("MongoDB Connected");
     } catch (err) {
         console.error(err);
@@ -22,7 +25,7 @@ const connectDB = async () => {
 
 //upload section
 
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ dest: 'uploads/', limits: { fileSize: 1024 * 1024} });
 
 const MIME_MAP = {
     '.js':   'application/javascript',
@@ -39,7 +42,7 @@ const MIME_MAP = {
 
 async function uploadFileToDrive(localFilePath, fileName) {
     const auth = new google.auth.GoogleAuth({
-        keyFile: path.join(__dirname, 'service-account-key.json'),
+        keyFile: process.env.GOOGLE_KEY_FILE || path.join(__dirname, 'service-account-key.json'),
         scopes: ['https://www.googleapis.com/auth/drive.file'],
     });
 
@@ -48,7 +51,9 @@ async function uploadFileToDrive(localFilePath, fileName) {
     const mimeType = MIME_MAP[ext] || 'text/plain';
 
     const response = await drive.files.create({
-        requestBody: { name: fileName },
+        requestBody: { name: fileName, 
+            ...(process.env.DRIVE_FOLDER_ID && { parents: [process.env.DRIVE_FOLDER_ID] }),
+        },
         media: {
             mimeType,
             body: fs.createReadStream(localFilePath),
@@ -62,9 +67,9 @@ async function uploadFileToDrive(localFilePath, fileName) {
 
 // ── App ─────────────────────────────────────────────────────────────
 const app = express();
-app.use(cors());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(cors(process.env.CORS_ORIGIN ? { origin: process.env.CORS_ORIGIN.split(',') } : undefined));
+app.use(express.urlencoded({ extended: true, limit: '256kb' }));
+app.use(express.json({ limit: '256kb' }));
 
 // ── Existing routes (unchanged) ─────────────────────────────────────
 app.get("/status", async (req, res) => {
@@ -86,20 +91,25 @@ app.get("/status", async (req, res) => {
 
 app.post("/run", async (req, res) => {
     const { language = "cpp", code } = req.body;
-    console.log(language, code ? code.length : 0);
-    if (!code) {
+    if (typeof code !== "string" || !code.trim()) {
         return res.status(400).json({ success: false, error: "Empty code body" });
     }
-    let job;
+    if (code.length > 100000) {
+        return res.status(413).json({ success: false, error: "Code is too long (100,000 characters max)" });
+    }
+    if (!isSupportedLanguage(language)) {
+        return res.status(400).json({ success: false, error: `Unsupported language: ${String(language).slice(0, 20)}` });
+    }
     try {
         const filepath = await generateFile(language, code);
-        job = await new Job({ language, filepath, code }).save();
+        const job = await new Job({ language, filepath, code }).save();
         const jobId = job["_id"];
-        addJobToQueue(jobId);
-        console.log(job);
+        console.log("Job created: ", jobId);
+        await addJobToQueue(jobId);
+        console.log("Job queued ", jobId);
         res.status(201).json({ success: true, jobId });
     } catch (err) {
-        return res.status(500).json({ success: false, err: JSON.stringify(err) });
+        return res.status(500).json({ success: false, error: err.message });
     }
 });
 
